@@ -5,6 +5,7 @@
 #-------------------------------------------------
 
 QT       += gui
+CONFIG += uitools
 
 TARGET = DoNothing
 TEMPLATE = lib
