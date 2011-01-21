@@ -14,6 +14,7 @@
 #include <stdlib.h>
 
 #include <QUiLoader>
+#include <QSettings>
 
 DoNothingPlugin * DoNothingPlugin::createdInstance;
 
@@ -110,6 +111,11 @@ void DoNothingPlugin::handleFileChange(const QString & path)
     qDebug() << "check names= " << checkNames(widget);
 }
 
+void DoNothingPlugin::settings()
+{
+    QSettings set("Bilkon", "DoNothing");
+}
+
 void DoNothingPlugin::createMenuItems()
 {
     Core::ActionManager* am = Core::ICore::instance()->actionManager();
@@ -124,8 +130,11 @@ void DoNothingPlugin::createMenuItems()
     ac->addAction(cmd);
     connect(cmd->action(), SIGNAL(triggered(bool)), this, SLOT(about()));
 
-    QAction *action = ac->menu()->addAction("Send UI");
-    connect(action, SIGNAL(triggered(bool)), this, SLOT(sendUi()));
+    QAction *sendUiAction = ac->menu()->addAction("Send UI");
+    connect(sendUiAction, SIGNAL(triggered(bool)), this, SLOT(sendUi()));
+
+    QAction *settingsAction = ac->menu()->addAction("Settings");
+    connect(settingsAction, SIGNAL(triggered(bool)), this, SLOT(settings()));
 }
 
 bool DoNothingPlugin::isValid(const QString objName) const

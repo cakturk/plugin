@@ -29,6 +29,7 @@ private slots:
     void sendUi();
     void printModifiedFiles();
     void handleFileChange(const QString &);
+    void settings();
 
 public slots:
     void nothingChanged(QString, QVariant);
