@@ -15,6 +15,7 @@
 
 #include <QUiLoader>
 #include <QSettings>
+#include "settingsdialog.h"
 
 DoNothingPlugin * DoNothingPlugin::createdInstance;
 
@@ -108,12 +109,27 @@ void DoNothingPlugin::handleFileChange(const QString & path)
     qDebug() << "Following file changed" << path;
 
     QWidget *widget = load(path);
-    qDebug() << "check names= " << checkNames(widget);
+
+    if (!checkNames(widget)) {
+        QMessageBox::warning(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
+                                                         "Error",
+                                                         "Check widget names!");
+    }
+
+    delete widget;
 }
 
 void DoNothingPlugin::settings()
 {
     QSettings set("Bilkon", "DoNothing");
+    settingsDialog d(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()));
+    d.setIpAddress(set.value("ipAddress").toString());
+    d.setPortNumber(set.value("portNumber").toString());
+
+    if (d.exec()) {
+        set.setValue("ipAddress", d.ipAddress());
+        set.setValue("portNumber", d.portNumber());
+    }
 }
 
 void DoNothingPlugin::createMenuItems()
