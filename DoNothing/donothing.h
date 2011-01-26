@@ -37,15 +37,18 @@ public slots:
 
 private:
     void createMenuItems();
-    bool isValid(const QString objName) const;
+    bool isValid(const QString & objName) const;
     QList<Core::IFile *> modifiedFiles() const;
-    QWidget* load(const QString);
+    QWidget* load(const QString &);
     bool checkNames(const QWidget*) const;
+    QStringList parseResource(const QString & fileName) const;
 
     const QString mime_type;
     QFileSystemWatcher fsw;
     QString oldFileName;
     Core::FileManager *fm;
+    QMap<QString, QStringList> classMap;
+    QTime timer;
 };
 
 void print_trace (void);

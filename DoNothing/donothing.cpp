@@ -15,6 +15,7 @@
 
 #include <QUiLoader>
 #include <QSettings>
+#include <QXmlStreamReader>
 #include "settingsdialog.h"
 
 DoNothingPlugin * DoNothingPlugin::createdInstance;
@@ -25,6 +26,7 @@ DoNothingPlugin::DoNothingPlugin() :
     // Do nothing
     createdInstance = this;
     fm = Core::ICore::instance()->fileManager();
+    timer.start();
 }
 
 DoNothingPlugin::~DoNothingPlugin()
@@ -88,6 +90,8 @@ void DoNothingPlugin::sendUi()
 {
     qDebug() << "Send ui";
     printModifiedFiles();
+
+    parseResource("/home/cihangir/newmy.qrc");
 }
 
 void DoNothingPlugin::printModifiedFiles()
@@ -101,20 +105,17 @@ void DoNothingPlugin::printModifiedFiles()
 
 void DoNothingPlugin::handleFileChange(const QString & path)
 {
-    static int count = 0;
-
-    count = (count + 1) % 2;
-    if (count != 0)
+    if (timer.elapsed() < 50)
         return;
+    timer.restart();
     qDebug() << "Following file changed" << path;
 
     QWidget *widget = load(path);
 
-    if (!checkNames(widget)) {
+    if (!checkNames(widget))
         QMessageBox::warning(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
                                                          "Error",
                                                          "Check widget names!");
-    }
 
     delete widget;
 }
@@ -127,8 +128,13 @@ void DoNothingPlugin::settings()
     d.setPortNumber(set.value("portNumber").toString());
 
     if (d.exec()) {
-        set.setValue("ipAddress", d.ipAddress());
-        set.setValue("portNumber", d.portNumber());
+        QString ipAddress = d.ipAddress();
+        QString portNumber = d.portNumber();
+
+        if (!ipAddress.isEmpty() && !portNumber.isEmpty()) {
+            set.setValue("ipAddress", ipAddress);
+            set.setValue("portNumber", portNumber);
+        }
     }
 }
 
@@ -153,11 +159,16 @@ void DoNothingPlugin::createMenuItems()
     connect(settingsAction, SIGNAL(triggered(bool)), this, SLOT(settings()));
 }
 
-bool DoNothingPlugin::isValid(const QString objName) const
+bool DoNothingPlugin::isValid(const QString & objName) const
 {
     QStringList list = objName.split("_");
-    if (list.size() != 2)
+    if (list.size() >= 1)
         return false;
+
+    if (classMap.contains(list[0])) {
+        if (!classMap.value(list[0]).contains(list[1]))
+            return false;
+    }
 
     return true;
 }
@@ -175,7 +186,7 @@ QList<Core::IFile *> DoNothingPlugin::modifiedFiles() const
     return list;
 }
 
-QWidget* DoNothingPlugin::load(const QString fileName)
+QWidget* DoNothingPlugin::load(const QString & fileName)
 {
     QUiLoader loader;
     QFile file(fileName);
@@ -201,6 +212,31 @@ bool DoNothingPlugin::checkNames(const QWidget *widget) const
     }
 
     return true;
+}
+
+QStringList DoNothingPlugin::parseResource(const QString &fileName) const
+{
+    QStringList resourceMap;
+    QFile file(fileName);
+    if(!file.open(QFile::ReadOnly))
+        return resourceMap;
+
+
+    QByteArray ba = file.readAll();
+    qDebug() << ba;
+    QXmlStreamReader xmlReader(ba);
+    qDebug() << "DoNothingPlugin::parseResource" << fileName;
+    while (!xmlReader.atEnd()) {
+        QXmlStreamReader::TokenType type = xmlReader.readNext();
+        if (type == QXmlStreamReader::StartElement) {
+            qDebug() << xmlReader.readElementText() << xmlReader.name();
+        }
+    }
+
+    if (xmlReader.hasError())
+        qDebug() << "An error occurred" << xmlReader.errorString();
+
+    return resourceMap;
 }
 
 void
