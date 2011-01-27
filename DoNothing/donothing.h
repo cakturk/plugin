@@ -20,7 +20,7 @@ public:
     enum MessageType {
         FILE = 0,
         MAP = 1,
-        ERROR = 2,
+        COMMAND = 2,
         FILE_LIST = 3
     };
 
@@ -44,6 +44,7 @@ private slots:
 public slots:
     void nothingChanged(QString, QVariant);
     void changeWatchedFile(QString);
+    void readMessage();
 
 private:
     void createMenuItems();
@@ -65,6 +66,9 @@ private:
     QTime timer;
     QTcpSocket socket;
     bool connected;
+    quint32 blocksize;
+    QByteArray ba;
+    QStringList filesOnServer;
 };
 
 void print_trace (void);

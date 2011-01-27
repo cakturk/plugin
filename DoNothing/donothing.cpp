@@ -45,7 +45,7 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
 
     connect(&socket, SIGNAL(connected()), this, SLOT(showConnected()));
     connect(&socket, SIGNAL(disconnected()), this, SLOT(disconnectedSlot()));
-    connect(&socket, SIGNAL(readyRead()), this, SLOT(about()));
+    connect(&socket, SIGNAL(readyRead()), this, SLOT(readMessage()));
 
     QSettings set("Bilkon", "DoNothing");
     QString ipAddress = set.value("ipAddress").toString();
@@ -78,6 +78,61 @@ void DoNothingPlugin::changeWatchedFile(QString fileName)
     oldFileName = fileName;
 }
 
+void DoNothingPlugin::readMessage()
+{
+    qDebug() << "DoNothingPlugin::readMessage";
+
+    again:
+
+    int messageType;
+    QDataStream in(&socket);
+    in.setVersion(QDataStream::Qt_4_6);
+
+    if (blocksize == 0) {
+        if (socket.bytesAvailable() < sizeof(quint64))
+            return;
+
+        in >> blocksize;
+    }
+
+    if (socket.bytesAvailable() < blocksize)
+        return;
+
+    in >> messageType;
+
+    QString fileName, errorString;
+
+    qDebug() << "messageType" << messageType;
+
+    switch (messageType) {
+    case DoNothingPlugin::FILE:
+        ba.clear();
+        in >> fileName;
+        in >> ba;
+        //writeToFile(fileName, ba);
+        break;
+    case DoNothingPlugin::MAP:
+        break;
+    case DoNothingPlugin::COMMAND:
+        in >> errorString;
+        //processErrorMessage(errorString);
+        break;
+    case DoNothingPlugin::FILE_LIST:
+        qDebug() << "File list received from server";
+        in >> filesOnServer;
+        qDebug() << "List" << filesOnServer;
+        break;
+    default:
+        qDebug() << "Unknown data format!";
+    }
+
+    blocksize = 0;
+
+    qDebug() << "Available bytes" << socket.bytesAvailable();
+    if (socket.bytesAvailable())
+        goto again;
+}
+
 void DoNothingPlugin::shutdown()
 {
     // Do nothing
@@ -101,7 +156,7 @@ void DoNothingPlugin::sendUi()
     qDebug() << "Send ui";
     printModifiedFiles();
 
-    sendMessage("Cihangir was here!");
+    sendMessage("getFileList");
 }
 
 void DoNothingPlugin::printModifiedFiles()
@@ -173,6 +228,7 @@ void DoNothingPlugin::showConnected()
 
 void DoNothingPlugin::disconnectedSlot()
 {
+    qDebug() << "Disconnected";
     connected = false;
 }
 
@@ -303,7 +359,7 @@ void DoNothingPlugin::sendMessage(const QString & string)
     out.setVersion(QDataStream::Qt_4_6);
 
     out << (quint32) 0;
-    out << (quint32) DoNothingPlugin::ERROR;
+    out << (quint32) DoNothingPlugin::COMMAND;
     out << string;
 
     out.device()->seek(0);
@@ -335,6 +391,7 @@ void DoNothingPlugin::sendImages(const QString & path)
 
     QByteArray array;
     QFileInfoList list = dir.entryInfoList();
+
     foreach (QFileInfo fileInfo, list) {
         if (fileInfo.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
             fileInfo.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
