@@ -7,6 +7,7 @@
 
 #include <QVariant>
 #include <QFileSystemWatcher>
+#include <QtNetwork/QTcpSocket>
 
 class /*__attribute__ ((visibility("default")))*/ DoNothingPlugin : public ExtensionSystem::IPlugin
 {
@@ -15,6 +16,14 @@ class /*__attribute__ ((visibility("default")))*/ DoNothingPlugin : public Exten
 public:
     DoNothingPlugin();
     ~DoNothingPlugin();
+
+    enum MessageType {
+        FILE = 0,
+        MAP = 1,
+        ERROR = 2,
+        FILE_LIST = 3
+    };
+
     void extensionsInitialized();
     bool initialize(const QStringList & arguments, QString * errorString);
     void shutdown();
@@ -22,14 +31,15 @@ public:
 
     void foo();
 
-    static DoNothingPlugin *createdInstance;
-
 private slots:
     void about();
     void sendUi();
     void printModifiedFiles();
     void handleFileChange(const QString &);
     void settings();
+
+    void showConnected();
+    void disconnectedSlot();
 
 public slots:
     void nothingChanged(QString, QVariant);
@@ -42,13 +52,19 @@ private:
     QWidget* load(const QString &);
     bool checkNames(const QWidget*) const;
     QStringList parseResource(const QString & fileName) const;
+    void sendMessage(const QString &, const QByteArray &);
+    void sendMessage(const QString & string);
+    void sendMessage(const QMap<QString, QStringList> & classMap);
+    void sendImages(const QString &);
 
     const QString mime_type;
-    QFileSystemWatcher fsw;
+    QFileSystemWatcher watcher;
     QString oldFileName;
     Core::FileManager *fm;
     QMap<QString, QStringList> classMap;
     QTime timer;
+    QTcpSocket socket;
+    bool connected;
 };
 
 void print_trace (void);

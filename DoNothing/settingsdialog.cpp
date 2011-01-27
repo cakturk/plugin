@@ -32,3 +32,13 @@ void settingsDialog::setPortNumber(const QString portNumber)
 {
     ui->lineEditPort->setText(portNumber);
 }
+
+void settingsDialog::setStatus(const QString status)
+{
+    if (status == "Connected")
+        ui->labelStatus->setStyleSheet("color: green;");
+    if (status == "Disconnected")
+        ui->labelStatus->setStyleSheet("color: red");
+
+    ui->labelStatus->setText(status);
+}

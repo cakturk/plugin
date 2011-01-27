@@ -20,6 +20,7 @@ public:
 
     void setIpAddress(const QString);
     void setPortNumber(const QString);
+    void setStatus(const QString);
 
 private:
     Ui::settingsDialog *ui;

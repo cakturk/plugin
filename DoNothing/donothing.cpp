@@ -16,15 +16,13 @@
 #include <QUiLoader>
 #include <QSettings>
 #include <QXmlStreamReader>
+#include <QDir>
 #include "settingsdialog.h"
-
-DoNothingPlugin * DoNothingPlugin::createdInstance;
 
 DoNothingPlugin::DoNothingPlugin() :
         mime_type("application/x-designer")
 {
     // Do nothing
-    createdInstance = this;
     fm = Core::ICore::instance()->fileManager();
     timer.start();
 }
@@ -43,7 +41,18 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
 
     createMenuItems();
     connect(fm, SIGNAL(currentFileChanged(QString)), this, SLOT(changeWatchedFile(QString)));
-    connect(&fsw, SIGNAL(fileChanged(QString)), this, SLOT(handleFileChange(QString)));
+    connect(&watcher, SIGNAL(fileChanged(QString)), this, SLOT(handleFileChange(QString)));
+
+    connect(&socket, SIGNAL(connected()), this, SLOT(showConnected()));
+    connect(&socket, SIGNAL(disconnected()), this, SLOT(disconnectedSlot()));
+    connect(&socket, SIGNAL(readyRead()), this, SLOT(about()));
+
+    QSettings set("Bilkon", "DoNothing");
+    QString ipAddress = set.value("ipAddress").toString();
+    quint16 portNumber = set.value("portNumber").toInt();
+
+    if (!ipAddress.isEmpty() && portNumber != 0)
+        socket.connectToHost(ipAddress, portNumber);
 
     return true;
 }
@@ -62,16 +71,17 @@ void DoNothingPlugin::nothingChanged(QString str, QVariant val)
 void DoNothingPlugin::changeWatchedFile(QString fileName)
 {
     if (!oldFileName.isEmpty())
-        fsw.removePath(oldFileName);
+        watcher.removePath(oldFileName);
 
-    if (!fsw.files().contains(fileName))
-        fsw.addPath(fileName);
+    if (!watcher.files().contains(fileName))
+        watcher.addPath(fileName);
     oldFileName = fileName;
 }
 
 void DoNothingPlugin::shutdown()
 {
     // Do nothing
+    socket.disconnectFromHost();
 }
 
 void DoNothingPlugin::foo()
@@ -91,7 +101,7 @@ void DoNothingPlugin::sendUi()
     qDebug() << "Send ui";
     printModifiedFiles();
 
-    parseResource("/home/cihangir/newmy.qrc");
+    sendMessage("Cihangir was here!");
 }
 
 void DoNothingPlugin::printModifiedFiles()
@@ -105,17 +115,30 @@ void DoNothingPlugin::printModifiedFiles()
 
 void DoNothingPlugin::handleFileChange(const QString & path)
 {
-    if (timer.elapsed() < 50)
+    if (timer.elapsed() < 150)
         return;
     timer.restart();
     qDebug() << "Following file changed" << path;
 
     QWidget *widget = load(path);
 
-    if (!checkNames(widget))
+    if (!checkNames(widget)) {
         QMessageBox::warning(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
-                                                         "Error",
-                                                         "Check widget names!");
+                             "Error",
+                             "Check widget names!");
+        return;
+    }
+
+    QFile file(path);
+    file.open(QFile::ReadOnly);
+    QByteArray ba = file.readAll();
+
+    qDebug() << "File size" << ba.size();
+
+    sendMessage("foobar.ui", ba);
+
+    QFileInfo fileInfo(path);
+    sendImages(fileInfo.absolutePath());
 
     delete widget;
 }
@@ -123,19 +146,34 @@ void DoNothingPlugin::handleFileChange(const QString & path)
 void DoNothingPlugin::settings()
 {
     QSettings set("Bilkon", "DoNothing");
-    settingsDialog d(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()));
-    d.setIpAddress(set.value("ipAddress").toString());
-    d.setPortNumber(set.value("portNumber").toString());
+    settingsDialog dialog(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()));
+    dialog.setIpAddress(set.value("ipAddress").toString());
+    dialog.setPortNumber(set.value("portNumber").toString());
+    dialog.setStatus(connected ? "Connected" : "Disconnected");
 
-    if (d.exec()) {
-        QString ipAddress = d.ipAddress();
-        QString portNumber = d.portNumber();
+    if (dialog.exec()) {
+        QString ipAddress = dialog.ipAddress();
+        QString portNumber = dialog.portNumber();
 
         if (!ipAddress.isEmpty() && !portNumber.isEmpty()) {
             set.setValue("ipAddress", ipAddress);
             set.setValue("portNumber", portNumber);
+
+            if (!connected)
+                socket.connectToHost(ipAddress, portNumber.toInt());
         }
     }
+}
+
+void DoNothingPlugin::showConnected()
+{
+    qDebug() << "Connected";
+    connected = true;
+}
+
+void DoNothingPlugin::disconnectedSlot()
+{
+    connected = false;
 }
 
 void DoNothingPlugin::createMenuItems()
@@ -161,6 +199,8 @@ void DoNothingPlugin::createMenuItems()
 
 bool DoNothingPlugin::isValid(const QString & objName) const
 {
+    return true;
+
     QStringList list = objName.split("_");
     if (list.size() >= 1)
         return false;
@@ -239,24 +279,96 @@ QStringList DoNothingPlugin::parseResource(const QString &fileName) const
     return resourceMap;
 }
 
-void
-print_trace (void)
+void DoNothingPlugin::sendMessage(const QString & fileName, const QByteArray & data)
 {
-  void *array[10];
-  size_t size;
-  char **strings;
-  size_t i;
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+    out.setVersion(QDataStream::Qt_4_6);
 
-  size = backtrace (array, 10);
-  strings = backtrace_symbols (array, size);
+    out << (quint32) 0;
+    out << (quint32) DoNothingPlugin::FILE;
+    out << fileName;
+    out << data;
 
-  printf ("Obtained %zd stack frames.\n", size);
+    out.device()->seek(0);
+    out << (quint32) (block.size() - sizeof(quint32));
 
-  for (i = 0; i < size; i++)
-     printf ("%s\n", strings[i]);
-
-  free (strings);
+    socket.write(block);
 }
 
+void DoNothingPlugin::sendMessage(const QString & string)
+{
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+    out.setVersion(QDataStream::Qt_4_6);
+
+    out << (quint32) 0;
+    out << (quint32) DoNothingPlugin::ERROR;
+    out << string;
+
+    out.device()->seek(0);
+    out << (quint32) (block.size() - sizeof(quint32));
+
+    socket.write(block);
+}
+
+void DoNothingPlugin::sendMessage(const QMap<QString, QStringList> & classMap)
+{
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+    out.setVersion(QDataStream::Qt_4_6);
+
+    out << (quint32) 0;
+    out << (quint32) DoNothingPlugin::MAP;
+    out << classMap;
+
+    out.device()->seek(0);
+    out << (quint32) (block.size() - sizeof(quint32));
+
+    socket.write(block);
+}
+
+void DoNothingPlugin::sendImages(const QString & path)
+{
+    QDir dir(path);
+    qDebug() << "Current dir:" << path;
+
+    QByteArray array;
+    QFileInfoList list = dir.entryInfoList();
+    foreach (QFileInfo fileInfo, list) {
+        if (fileInfo.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
+            fileInfo.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
+            fileInfo.suffix().compare("jpeg", Qt::CaseInsensitive) == 0) {
+
+            qDebug() << "Filename:" << fileInfo.fileName();
+
+            QFile file(fileInfo.absoluteFilePath());
+            if (!file.open(QFile::ReadOnly))
+                continue;
+
+            array = file.readAll();
+            qDebug() << "imagesize =" << array.size();
+            sendMessage(fileInfo.fileName(), array);
+        }
+    }
+}
+
+void print_trace (void)
+{
+    void *array[10];
+    size_t size;
+    char **strings;
+    size_t i;
+
+    size = backtrace (array, 10);
+    strings = backtrace_symbols (array, size);
+
+    printf ("Obtained %zd stack frames.\n", size);
+
+    for (i = 0; i < size; i++)
+        printf ("%s\n", strings[i]);
+
+    free (strings);
+}
 
 Q_EXPORT_PLUGIN(DoNothingPlugin)
