@@ -36,6 +36,7 @@ private slots:
     void sendUi();
     void printModifiedFiles();
     void handleFileChange(const QString &);
+    void insertFile(const QString &);
     void settings();
 
     void showConnected();
@@ -60,6 +61,7 @@ private:
 
     const QString mime_type;
     QFileSystemWatcher watcher;
+    QFileSystemWatcher imageWatcher;
     QString oldFileName;
     Core::FileManager *fm;
     QMap<QString, QStringList> classMap;
@@ -69,6 +71,7 @@ private:
     quint32 blocksize;
     QByteArray ba;
     QStringList filesOnServer;
+    QStringList imagesToSend;
 };
 
 void print_trace (void);

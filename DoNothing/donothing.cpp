@@ -119,6 +119,7 @@ void DoNothingPlugin::readMessage()
         break;
     case DoNothingPlugin::FILE_LIST:
         qDebug() << "File list received from server";
+        filesOnServer.clear();
         in >> filesOnServer;
         qDebug() << "List" << filesOnServer;
         break;
@@ -170,6 +171,8 @@ void DoNothingPlugin::printModifiedFiles()
 
 void DoNothingPlugin::handleFileChange(const QString & path)
 {
+    static bool firsTime = true;
+
     if (timer.elapsed() < 150)
         return;
     timer.restart();
@@ -186,16 +189,57 @@ void DoNothingPlugin::handleFileChange(const QString & path)
 
     QFile file(path);
     file.open(QFile::ReadOnly);
-    QByteArray ba = file.readAll();
+    QByteArray array = file.readAll();
 
-    qDebug() << "File size" << ba.size();
+    qDebug() << "File size" << array.size();
 
-    sendMessage("foobar.ui", ba);
+    sendMessage("foobar.ui", array);
 
-    QFileInfo fileInfo(path);
-    sendImages(fileInfo.absolutePath());
+    if (firsTime) {
+        qDebug() << "First time of my life";
+        QFileInfo fileInfo(path);
+        sendImages(fileInfo.absolutePath());
+        connect(&imageWatcher, SIGNAL(fileChanged(QString)), this, SLOT(insertFile(QString)));
+
+        QDir dir(fileInfo.absolutePath());
+        foreach (QFileInfo fileName, dir.entryInfoList()) {
+            if (fileName.suffix() != "ui" &&
+                fileName.fileName() != ".." &&
+                fileName.fileName() != ".") {
+                imageWatcher.addPath(fileName.absoluteFilePath());
+                qDebug() << "imagewatcher" << fileName.fileName();
+            }
+        }
+
+        firsTime = false;
+    } else {
+        foreach (QString fileName, imagesToSend) {
+            QFileInfo fileInfo(fileName);
+
+            if (fileInfo.exists()) {
+                QFile imFile(fileInfo.absoluteFilePath());
+                imFile.open(QFile::ReadOnly);
+                array = imFile.readAll();
+
+                sendMessage(fileInfo.fileName(), array);
+            }
+        }
+
+        imagesToSend.clear();
+    }
 
     delete widget;
+}
+
+void DoNothingPlugin::insertFile(const QString & path)
+{
+    if (!imagesToSend.contains(path) ||
+        path.split("/").last() != "." ||
+        path.split("..").last() != ".." ||
+        path.split(".").last() != "ui") {
+        imagesToSend.append(path);
+        qDebug() << "inserted file" << path;
+    }
 }
 
 void DoNothingPlugin::settings()
