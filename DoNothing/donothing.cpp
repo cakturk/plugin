@@ -171,7 +171,7 @@ void DoNothingPlugin::printModifiedFiles()
 
 void DoNothingPlugin::handleFileChange(const QString & path)
 {
-    static bool firsTime = true;
+    static bool firstTime = true;
 
     if (timer.elapsed() < 150)
         return;
@@ -195,7 +195,7 @@ void DoNothingPlugin::handleFileChange(const QString & path)
 
     sendMessage("foobar.ui", array);
 
-    if (firsTime) {
+    if (firstTime) {
         qDebug() << "First time of my life";
         QFileInfo fileInfo(path);
         sendImages(fileInfo.absolutePath());
@@ -211,7 +211,7 @@ void DoNothingPlugin::handleFileChange(const QString & path)
             }
         }
 
-        firsTime = false;
+        firstTime = false;
     } else {
         foreach (QString fileName, imagesToSend) {
             QFileInfo fileInfo(fileName);
