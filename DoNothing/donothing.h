@@ -39,7 +39,6 @@ private slots:
     void connectedSlot();
     void disconnectedSlot();
 
-public slots:
     void changeWatchedFile(QString);
     void readMessage();
 
@@ -53,7 +52,7 @@ private:
     void sendMessage(const QString &, const QByteArray &);
     void sendMessage(const QString & string);
     void sendMessage(const QMap<QString, QStringList> & classMap);
-    void sendImages(const QString &);
+    void sendDirectory(const QString &);
 
     const QString mime_type;
     QFileSystemWatcher uiWatcher;

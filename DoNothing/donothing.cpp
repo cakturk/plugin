@@ -395,7 +395,10 @@ void DoNothingPlugin::sendMessage(const QMap<QString, QStringList> & classMap)
     socket.write(block);
 }
 
-void DoNothingPlugin::sendImages(const QString & path)
+/**
+  * Sends all the files in a directory.
+  */
+void DoNothingPlugin::sendDirectory(const QString & path)
 {
     QDir dir(path);
     qDebug() << "Current dir:" << path;
@@ -404,9 +407,9 @@ void DoNothingPlugin::sendImages(const QString & path)
     QFileInfoList list = dir.entryInfoList();
 
     foreach (QFileInfo fileInfo, list) {
-        if (fileInfo.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
-            fileInfo.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
-            fileInfo.suffix().compare("jpeg", Qt::CaseInsensitive) == 0) {
+        QString fileName = fileInfo.fileName();
+        if (fileName != "." &&
+            fileName != "..") {
 
             qDebug() << "Filename:" << fileInfo.fileName();
 
@@ -415,7 +418,7 @@ void DoNothingPlugin::sendImages(const QString & path)
                 continue;
 
             array = file.readAll();
-            qDebug() << "imagesize =" << array.size();
+            qDebug() << "a file in dir =" << array.size();
             sendMessage(fileInfo.fileName(), array);
         }
     }
