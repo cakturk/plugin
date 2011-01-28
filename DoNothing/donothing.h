@@ -36,7 +36,7 @@ private slots:
     void insertFile(const QString &);
     void settings();
 
-    void showConnected();
+    void connectedSlot();
     void disconnectedSlot();
 
 public slots:

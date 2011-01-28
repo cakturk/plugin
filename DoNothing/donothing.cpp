@@ -43,7 +43,7 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
     connect(fm, SIGNAL(currentFileChanged(QString)), this, SLOT(changeWatchedFile(QString)));
     connect(&watcher, SIGNAL(fileChanged(QString)), this, SLOT(handleFileChange(QString)));
 
-    connect(&socket, SIGNAL(connected()), this, SLOT(showConnected()));
+    connect(&socket, SIGNAL(connected()), this, SLOT(connectedSlot()));
     connect(&socket, SIGNAL(disconnected()), this, SLOT(disconnectedSlot()));
     connect(&socket, SIGNAL(readyRead()), this, SLOT(readMessage()));
 
@@ -242,7 +242,7 @@ void DoNothingPlugin::settings()
     }
 }
 
-void DoNothingPlugin::showConnected()
+void DoNothingPlugin::connectedSlot()
 {
     qDebug() << "Connected";
     connected = true;
