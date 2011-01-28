@@ -41,7 +41,7 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
 
     createMenuItems();
     connect(fm, SIGNAL(currentFileChanged(QString)), this, SLOT(changeWatchedFile(QString)));
-    connect(&watcher, SIGNAL(fileChanged(QString)), this, SLOT(handleFileChange(QString)));
+    connect(&uiWatcher, SIGNAL(fileChanged(QString)), this, SLOT(handleFileChange(QString)));
     connect(&imageWatcher, SIGNAL(fileChanged(QString)), this, SLOT(insertFile(QString)));
 
     connect(&socket, SIGNAL(connected()), this, SLOT(connectedSlot()));
@@ -66,10 +66,10 @@ void DoNothingPlugin::extensionsInitialized()
 void DoNothingPlugin::changeWatchedFile(QString fileName)
 {
     if (!oldFileName.isEmpty())
-        watcher.removePath(oldFileName);
+        uiWatcher.removePath(oldFileName);
 
-    if (!watcher.files().contains(fileName))
-        watcher.addPath(fileName);
+    if (!uiWatcher.files().contains(fileName))
+        uiWatcher.addPath(fileName);
     oldFileName = fileName;
 }
 

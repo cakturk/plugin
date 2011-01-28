@@ -56,7 +56,7 @@ private:
     void sendImages(const QString &);
 
     const QString mime_type;
-    QFileSystemWatcher watcher;
+    QFileSystemWatcher uiWatcher;
     QFileSystemWatcher imageWatcher;
     QString oldFileName;
     Core::FileManager *fm;
