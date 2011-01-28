@@ -149,15 +149,7 @@ void DoNothingPlugin::about()
 {
     QMessageBox::information(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
                              "About Bilkon Plugin",
-                             "Seriously dude, this plugin does nothing");
-}
-
-void DoNothingPlugin::sendUi()
-{
-    qDebug() << "Send ui";
-    printModifiedFiles();
-
-    sendMessage("getFileList");
+                             "Bilkon UI Designer Plugin");
 }
 
 void DoNothingPlugin::printModifiedFiles()
@@ -285,15 +277,12 @@ void DoNothingPlugin::createMenuItems()
     Core::Command *cmd = am->registerAction(new QAction(this),
                                             "DoNothingPlugin.DoNothingMenu",
                                             QList<int>() << 0);
-    cmd->action()->setText("About Bilkon Plugin");
+    cmd->action()->setText("&About Bilkon Plugin");
     am->actionContainer(Core::Constants::MENU_BAR)->addMenu(ac);
     ac->addAction(cmd);
     connect(cmd->action(), SIGNAL(triggered(bool)), this, SLOT(about()));
 
-    QAction *sendUiAction = ac->menu()->addAction("Send UI");
-    connect(sendUiAction, SIGNAL(triggered(bool)), this, SLOT(sendUi()));
-
-    QAction *settingsAction = ac->menu()->addAction("Settings");
+    QAction *settingsAction = ac->menu()->addAction("&Settings");
     connect(settingsAction, SIGNAL(triggered(bool)), this, SLOT(settings()));
 }
 
