@@ -16,10 +16,8 @@ public:
     ~settingsDialog();
 
     QString ipAddress() const;
-    QString portNumber() const;
 
     void setIpAddress(const QString);
-    void setPortNumber(const QString);
     void setStatus(const QString);
 
 private:

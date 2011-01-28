@@ -20,7 +20,9 @@
 #include "settingsdialog.h"
 
 DoNothingPlugin::DoNothingPlugin() :
-        mime_type("application/x-designer")
+        mime_type("application/x-designer"),
+        connected(false),
+        portNumber(33666)
 {
     // Do nothing
     fm = Core::ICore::instance()->fileManager();
@@ -49,7 +51,6 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
 
     QSettings set("Bilkon", "DoNothing");
     QString ipAddress = set.value("ipAddress").toString();
-    quint16 portNumber = set.value("portNumber").toInt();
 
     if (!ipAddress.isEmpty() && portNumber != 0)
         socket.connectToHost(ipAddress, portNumber);
@@ -239,19 +240,17 @@ void DoNothingPlugin::settings()
     QSettings set("Bilkon", "DoNothing");
     settingsDialog dialog(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()));
     dialog.setIpAddress(set.value("ipAddress").toString());
-    dialog.setPortNumber(set.value("portNumber").toString());
+    qDebug() << "Connected:" << connected;
     dialog.setStatus(connected ? "Connected" : "Disconnected");
 
     if (dialog.exec()) {
         QString ipAddress = dialog.ipAddress();
-        QString portNumber = dialog.portNumber();
 
-        if (!ipAddress.isEmpty() && !portNumber.isEmpty()) {
+        if (!ipAddress.isEmpty()) {
             set.setValue("ipAddress", ipAddress);
-            set.setValue("portNumber", portNumber);
 
             if (!connected)
-                socket.connectToHost(ipAddress, portNumber.toInt());
+                socket.connectToHost(ipAddress, portNumber);
         }
     }
 }

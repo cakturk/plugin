@@ -33,7 +33,6 @@ public:
 
 private slots:
     void about();
-    void sendUi();
     void printModifiedFiles();
     void handleFileChange(const QString &);
     void insertFile(const QString &);
@@ -69,6 +68,7 @@ private:
     QTcpSocket socket;
     bool connected;
     quint32 blocksize;
+    quint16 portNumber;
     QByteArray ba;
     QStringList filesOnServer;
     QStringList imagesToSend;
