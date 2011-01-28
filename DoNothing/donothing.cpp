@@ -39,8 +39,6 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
     Q_UNUSED(args);
     Q_UNUSED(errMsg);
 
-    //print_trace();
-
     createMenuItems();
     connect(fm, SIGNAL(currentFileChanged(QString)), this, SLOT(changeWatchedFile(QString)));
     connect(&watcher, SIGNAL(fileChanged(QString)), this, SLOT(handleFileChange(QString)));
@@ -61,12 +59,6 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
 void DoNothingPlugin::extensionsInitialized()
 {
     // Do nothing
-}
-
-void DoNothingPlugin::nothingChanged(QString str, QVariant val)
-{
-    qDebug() << "nothingChanged";
-    qDebug() << str << val;
 }
 
 void DoNothingPlugin::changeWatchedFile(QString fileName)
@@ -139,11 +131,6 @@ void DoNothingPlugin::shutdown()
 {
     // Do nothing
     socket.disconnectFromHost();
-}
-
-void DoNothingPlugin::foo()
-{
-    qDebug() << "foo::Donothing";
 }
 
 void DoNothingPlugin::about()

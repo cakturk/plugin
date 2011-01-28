@@ -29,8 +29,6 @@ public:
     void shutdown();
     //static DoNothingPlugin * instance() { return created; }
 
-    void foo();
-
 private slots:
     void about();
     void printModifiedFiles();
@@ -42,7 +40,6 @@ private slots:
     void disconnectedSlot();
 
 public slots:
-    void nothingChanged(QString, QVariant);
     void changeWatchedFile(QString);
     void readMessage();
 
