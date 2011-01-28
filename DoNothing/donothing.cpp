@@ -42,10 +42,12 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
     createMenuItems();
     connect(fm, SIGNAL(currentFileChanged(QString)), this, SLOT(changeWatchedFile(QString)));
     connect(&watcher, SIGNAL(fileChanged(QString)), this, SLOT(handleFileChange(QString)));
+    connect(&imageWatcher, SIGNAL(fileChanged(QString)), this, SLOT(insertFile(QString)));
 
     connect(&socket, SIGNAL(connected()), this, SLOT(connectedSlot()));
     connect(&socket, SIGNAL(disconnected()), this, SLOT(disconnectedSlot()));
     connect(&socket, SIGNAL(readyRead()), this, SLOT(readMessage()));
+
 
     QSettings set("Bilkon", "DoNothing");
     QString ipAddress = set.value("ipAddress").toString();
@@ -151,8 +153,6 @@ void DoNothingPlugin::printModifiedFiles()
 
 void DoNothingPlugin::handleFileChange(const QString & path)
 {
-    static bool firstTime = true;
-
     if (timer.elapsed() < 150)
         return;
     timer.restart();
@@ -170,53 +170,45 @@ void DoNothingPlugin::handleFileChange(const QString & path)
     QFile file(path);
     file.open(QFile::ReadOnly);
     QByteArray array = file.readAll();
-
+    sendMessage("foobar.ui", array);
     qDebug() << "File size" << array.size();
 
-    sendMessage("foobar.ui", array);
+    QFileInfo fileInfo(path);
+    //sendImages(fileInfo.absolutePath());
+    QDir dir(fileInfo.absolutePath());
+    foreach (QFileInfo fileName, dir.entryInfoList()) {
+        if (fileName.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
+            fileName.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
+            fileName.suffix().compare("jpeg", Qt::CaseInsensitive) == 0) {
 
-    if (firstTime) {
-        qDebug() << "First time of my life";
-        QFileInfo fileInfo(path);
-        sendImages(fileInfo.absolutePath());
-        connect(&imageWatcher, SIGNAL(fileChanged(QString)), this, SLOT(insertFile(QString)));
-
-        QDir dir(fileInfo.absolutePath());
-        foreach (QFileInfo fileName, dir.entryInfoList()) {
-            if (fileName.suffix() != "ui" &&
-                fileName.fileName() != ".." &&
-                fileName.fileName() != ".") {
-                imageWatcher.addPath(fileName.absoluteFilePath());
+            QString absoluteFilePath = fileName.absoluteFilePath();
+            if (!imageWatcher.files().contains(absoluteFilePath)) {
+                imageWatcher.addPath(absoluteFilePath);
+                imagesToSend.append(absoluteFilePath);
                 qDebug() << "imagewatcher" << fileName.fileName();
             }
         }
-
-        firstTime = false;
-    } else {
-        foreach (QString fileName, imagesToSend) {
-            QFileInfo fileInfo(fileName);
-
-            if (fileInfo.exists()) {
-                QFile imFile(fileInfo.absoluteFilePath());
-                imFile.open(QFile::ReadOnly);
-                array = imFile.readAll();
-
-                sendMessage(fileInfo.fileName(), array);
-            }
-        }
-
-        imagesToSend.clear();
     }
+
+    // Send images to server.
+    foreach (QString fileName, imagesToSend) {
+        fileInfo.setFile(fileName);
+        if (fileInfo.exists()) {
+            QFile imFile(fileName);
+            imFile.open(QFile::ReadOnly);
+            array = imFile.readAll();
+
+            sendMessage(fileInfo.fileName(), array);
+        }
+    }
+    imagesToSend.clear();
 
     delete widget;
 }
 
 void DoNothingPlugin::insertFile(const QString & path)
 {
-    if (!imagesToSend.contains(path) ||
-        path.split("/").last() != "." ||
-        path.split("..").last() != ".." ||
-        path.split(".").last() != "ui") {
+    if (!imagesToSend.contains(path)) {
         imagesToSend.append(path);
         qDebug() << "inserted file" << path;
     }
