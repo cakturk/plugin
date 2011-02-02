@@ -135,8 +135,9 @@ void DoNothingPlugin::shutdown()
 void DoNothingPlugin::about()
 {
     QMessageBox::information(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
-                             "About Bilkon Plugin",
-                             "Bilkon UI Designer Plugin");
+                             "About Bilkon Plugin v0.1",
+                             "Bilkon UI Designer Plugin\n"
+                             "Version 0.1");
 }
 
 void DoNothingPlugin::printModifiedFiles()
