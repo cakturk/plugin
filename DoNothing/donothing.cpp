@@ -9,10 +9,6 @@
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/icore.h>
 
-#include <execinfo.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include <QUiLoader>
 #include <QSettings>
 #include <QXmlStreamReader>
@@ -422,24 +418,6 @@ void DoNothingPlugin::sendDirectory(const QString & path)
             sendMessage(fileInfo.fileName(), array);
         }
     }
-}
-
-void print_trace (void)
-{
-    void *array[10];
-    size_t size;
-    char **strings;
-    size_t i;
-
-    size = backtrace (array, 10);
-    strings = backtrace_symbols (array, size);
-
-    printf ("Obtained %zd stack frames.\n", size);
-
-    for (i = 0; i < size; i++)
-        printf ("%s\n", strings[i]);
-
-    free (strings);
 }
 
 Q_EXPORT_PLUGIN(DoNothingPlugin)
