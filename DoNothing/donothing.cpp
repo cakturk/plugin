@@ -18,7 +18,8 @@
 DoNothingPlugin::DoNothingPlugin() :
         mime_type("application/x-designer"),
         connected(false),
-        portNumber(33666)
+        portNumber(33666),
+        artDirectory("art")
 {
     // Do nothing
     fm = Core::ICore::instance()->fileManager();
@@ -166,12 +167,12 @@ void DoNothingPlugin::handleFileChange(const QString & path)
     QFile file(path);
     file.open(QFile::ReadOnly);
     QByteArray array = file.readAll();
-    sendMessage("foobar.ui", array);
+    QFileInfo fileInfo(path);
+    sendMessage(fileInfo.fileName(), array);
     qDebug() << "File size" << array.size();
 
-    QFileInfo fileInfo(path);
-    //sendImages(fileInfo.absolutePath());
-    QDir dir(fileInfo.absolutePath());
+    QDir dir(fileInfo.absolutePath() + "/" + artDirectory);
+
     foreach (QFileInfo fileName, dir.entryInfoList()) {
         if (fileName.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
             fileName.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
@@ -400,15 +401,10 @@ void DoNothingPlugin::sendDirectory(const QString & path)
     qDebug() << "Current dir:" << path;
 
     QByteArray array;
-    QFileInfoList list = dir.entryInfoList();
+    QFileInfoList list = dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
 
     foreach (QFileInfo fileInfo, list) {
-        QString fileName = fileInfo.fileName();
-        if (fileName != "." &&
-            fileName != "..") {
-
             qDebug() << "Filename:" << fileInfo.fileName();
-
             QFile file(fileInfo.absoluteFilePath());
             if (!file.open(QFile::ReadOnly))
                 continue;
@@ -416,7 +412,6 @@ void DoNothingPlugin::sendDirectory(const QString & path)
             array = file.readAll();
             qDebug() << "a file in dir =" << array.size();
             sendMessage(fileInfo.fileName(), array);
-        }
     }
 }
 

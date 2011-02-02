@@ -65,6 +65,7 @@ private:
     bool connected;
     quint32 blocksize;
     quint16 portNumber;
+    const QString artDirectory;
     QByteArray ba;
     QStringList filesOnServer;
     QStringList imagesToSend;
