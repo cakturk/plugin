@@ -45,7 +45,6 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
     connect(&socket, SIGNAL(disconnected()), this, SLOT(disconnectedSlot()));
     connect(&socket, SIGNAL(readyRead()), this, SLOT(readMessage()));
 
-
     QSettings set("Bilkon", "DoNothing");
     QString ipAddress = set.value("ipAddress").toString();
 
@@ -232,6 +231,35 @@ void DoNothingPlugin::settings()
     }
 }
 
+void DoNothingPlugin::sendAllFiles()
+{
+    QFileInfo fileInfo(fm->currentFile());
+
+    if (!fileInfo.exists())
+        return;
+
+    QFile file(fileInfo.absoluteFilePath());
+    if (!file.open(QFile::ReadOnly))
+        return;
+
+    QByteArray array = file.readAll();
+    sendMessage(fileInfo.fileName(), array);
+
+    QDir dir(fileInfo.absolutePath() + "/" + artDirectory);
+
+    foreach (QFileInfo fileName, dir.entryInfoList()) {
+        if (fileName.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
+            fileName.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
+            fileName.suffix().compare("jpeg", Qt::CaseInsensitive) == 0) {
+
+            QFile imageFile(fileName.absoluteFilePath());
+            imageFile.open(QFile::ReadOnly);
+            array = imageFile.readAll();
+            sendMessage(fileName.fileName(), array);
+        }
+    }
+}
+
 void DoNothingPlugin::connectedSlot()
 {
     qDebug() << "Connected";
@@ -260,6 +288,9 @@ void DoNothingPlugin::createMenuItems()
 
     QAction *settingsAction = ac->menu()->addAction("&Settings");
     connect(settingsAction, SIGNAL(triggered(bool)), this, SLOT(settings()));
+
+    QAction *sendFilesAction = ac->menu()->addAction("Send All &Files");
+    connect(sendFilesAction, SIGNAL(triggered(bool)), this, SLOT(sendAllFiles()));
 }
 
 bool DoNothingPlugin::isValid(const QString & objName) const

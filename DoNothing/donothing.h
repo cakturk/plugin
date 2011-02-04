@@ -41,6 +41,7 @@ private slots:
 
     void changeWatchedFile(QString);
     void readMessage();
+    void sendAllFiles();
 
 private:
     void createMenuItems();
