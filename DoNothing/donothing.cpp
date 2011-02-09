@@ -18,6 +18,7 @@
 DoNothingPlugin::DoNothingPlugin() :
         mime_type("application/x-designer"),
         connected(false),
+        blocksize(0),
         portNumber(33666),
         artDirectory("art")
 {
@@ -80,6 +81,8 @@ void DoNothingPlugin::readMessage()
     in.setVersion(QDataStream::Qt_4_6);
 
     if (blocksize == 0) {
+        qDebug() << "[1]";
+
         if (socket.bytesAvailable() < sizeof(quint64))
             return;
 
@@ -92,8 +95,6 @@ void DoNothingPlugin::readMessage()
     in >> messageType;
 
     QString fileName, errorString;
-
-    qDebug() << "messageType" << messageType;
 
     switch (messageType) {
     case DoNothingPlugin::FILE:
@@ -120,7 +121,6 @@ void DoNothingPlugin::readMessage()
 
     blocksize = 0;
 
-    qDebug() << "Available bytes" << socket.bytesAvailable();
     if (socket.bytesAvailable())
         goto again;
 }
@@ -181,7 +181,8 @@ void DoNothingPlugin::handleFileChange(const QString & path)
             QString absoluteFilePath = fileName.absoluteFilePath();
             if (!imageWatcher.files().contains(absoluteFilePath)) {
                 imageWatcher.addPath(absoluteFilePath);
-                imagesToSend.append(absoluteFilePath);
+                if (!filesOnServer.contains(fileName.fileName()))
+                    imagesToSend.append(absoluteFilePath);
                 qDebug() << "imagewatcher" << fileName.fileName();
             }
         }
@@ -252,10 +253,13 @@ void DoNothingPlugin::sendAllFiles()
             fileName.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
             fileName.suffix().compare("jpeg", Qt::CaseInsensitive) == 0) {
 
-            QFile imageFile(fileName.absoluteFilePath());
-            imageFile.open(QFile::ReadOnly);
-            array = imageFile.readAll();
-            sendMessage(fileName.fileName(), array);
+            if (!filesOnServer.contains(fileName.fileName())) {
+                filesOnServer.append(fileName.fileName());
+                QFile imageFile(fileName.absoluteFilePath());
+                imageFile.open(QFile::ReadOnly);
+                array = imageFile.readAll();
+                sendMessage(fileName.fileName(), array);
+            }
         }
     }
 }
