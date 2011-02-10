@@ -13,6 +13,9 @@
 #include <QSettings>
 #include <QXmlStreamReader>
 #include <QDir>
+#include <QMainWindow>
+#include <QFileDialog>
+#include <QProgressBar>
 #include "settingsdialog.h"
 
 DoNothingPlugin::DoNothingPlugin() :
@@ -20,11 +23,16 @@ DoNothingPlugin::DoNothingPlugin() :
         connected(false),
         blocksize(0),
         portNumber(33666),
-        artDirectory("art")
+        artDirectory("art"),
+        progressBar(new QProgressBar(static_cast<QWidget *>(Core::ICore::instance()->mainWindow())))
 {
     // Do nothing
     fm = Core::ICore::instance()->fileManager();
     timer.start();
+
+    progressBar->resize(250, 10);
+    progressBar->hide();
+    centerWidget(progressBar);
 }
 
 DoNothingPlugin::~DoNothingPlugin()
@@ -81,8 +89,6 @@ void DoNothingPlugin::readMessage()
     in.setVersion(QDataStream::Qt_4_6);
 
     if (blocksize == 0) {
-        qDebug() << "[1]";
-
         if (socket.bytesAvailable() < sizeof(quint64))
             return;
 
@@ -94,7 +100,7 @@ void DoNothingPlugin::readMessage()
 
     in >> messageType;
 
-    QString fileName, errorString;
+    QString fileName, commandString;
 
     switch (messageType) {
     case DoNothingPlugin::FILE:
@@ -106,8 +112,9 @@ void DoNothingPlugin::readMessage()
     case DoNothingPlugin::MAP:
         break;
     case DoNothingPlugin::COMMAND:
-        in >> errorString;
-        //processErrorMessage(errorString);
+        in >> commandString;
+        if (commandString == "transfer_completed")
+            setProgressBarValue();
         break;
     case DoNothingPlugin::FILE_LIST:
         qDebug() << "File list received from server";
@@ -129,11 +136,12 @@ void DoNothingPlugin::shutdown()
 {
     // Do nothing
     socket.disconnectFromHost();
+    delete progressBar;
 }
 
 void DoNothingPlugin::about()
 {
-    QMessageBox::information(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
+    QMessageBox::information(static_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
                              "About Bilkon Plugin v0.1",
                              "Bilkon UI Designer Plugin\n"
                              "Version 0.1");
@@ -158,7 +166,7 @@ void DoNothingPlugin::handleFileChange(const QString & path)
     QWidget *widget = load(path);
 
     if (!checkNames(widget)) {
-        QMessageBox::warning(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
+        QMessageBox::warning(static_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
                              "Error",
                              "Check widget names!");
         return;
@@ -188,6 +196,12 @@ void DoNothingPlugin::handleFileChange(const QString & path)
         }
     }
 
+    if (imagesToSend.size()) {
+        progressBar->setMaximum(imagesToSend.size());
+        progressBar->show();
+        centerWidget(progressBar);
+    }
+
     // Send images to server.
     foreach (QString fileName, imagesToSend) {
         fileInfo.setFile(fileName);
@@ -215,7 +229,7 @@ void DoNothingPlugin::insertFile(const QString & path)
 void DoNothingPlugin::settings()
 {
     QSettings set("Bilkon", "DoNothing");
-    settingsDialog dialog(reinterpret_cast<QWidget *>(Core::ICore::instance()->mainWindow()));
+    settingsDialog dialog(static_cast<QWidget *>(Core::ICore::instance()->mainWindow()));
     dialog.setIpAddress(set.value("ipAddress").toString());
     qDebug() << "Connected:" << connected;
     dialog.setStatus(connected ? "Connected" : "Disconnected");
@@ -247,6 +261,7 @@ void DoNothingPlugin::sendAllFiles()
     sendMessage(fileInfo.fileName(), array);
 
     QDir dir(fileInfo.absolutePath() + "/" + artDirectory);
+    QStringList list;
 
     foreach (QFileInfo fileName, dir.entryInfoList()) {
         if (fileName.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
@@ -255,13 +270,47 @@ void DoNothingPlugin::sendAllFiles()
 
             if (!filesOnServer.contains(fileName.fileName())) {
                 filesOnServer.append(fileName.fileName());
-                QFile imageFile(fileName.absoluteFilePath());
-                imageFile.open(QFile::ReadOnly);
-                array = imageFile.readAll();
-                sendMessage(fileName.fileName(), array);
+                list.append(fileName.absoluteFilePath());
             }
         }
     }
+
+    if (list.size()) {
+        progressBar->setMaximum(list.size());
+        progressBar->show();
+        centerWidget(progressBar);
+    }
+
+    foreach (QString filePath, list) {
+        QFileInfo fileInfo(filePath);
+        QFile imageFile(filePath);
+        imageFile.open(QFile::ReadOnly);
+        array = imageFile.readAll();
+        sendMessage(fileInfo.fileName(), array);
+    }
+}
+
+void DoNothingPlugin::upgrade()
+{
+    QString fileName = QFileDialog::getOpenFileName(0);
+    qDebug() << "Recently opened file" << fileName;
+
+    QFileInfo fileInfo(fileName);
+    if (!fileInfo.exists())
+        return;
+
+    QFile file(fileInfo.absoluteFilePath());
+    if(!file.open(QFile::ReadOnly))
+        return;
+
+    QByteArray array = file.readAll();
+    sendMessage(fileInfo.fileName(), array, DoNothingPlugin::UPGRADE);
+}
+
+void DoNothingPlugin::deleteAllFiles()
+{
+    sendMessage("delete_all_files");
+    filesOnServer.clear();
 }
 
 void DoNothingPlugin::connectedSlot()
@@ -295,6 +344,12 @@ void DoNothingPlugin::createMenuItems()
 
     QAction *sendFilesAction = ac->menu()->addAction("Send All &Files");
     connect(sendFilesAction, SIGNAL(triggered(bool)), this, SLOT(sendAllFiles()));
+
+    QAction *upgrade = ac->menu()->addAction("&Upgrade");
+    connect(upgrade, SIGNAL(triggered(bool)), this, SLOT(upgrade()));
+
+    QAction *deleteAllFiles = ac->menu()->addAction("&Delete All Files");
+    connect(deleteAllFiles, SIGNAL(triggered(bool)), this, SLOT(deleteAllFiles()));
 }
 
 bool DoNothingPlugin::isValid(const QString & objName) const
@@ -379,14 +434,14 @@ QStringList DoNothingPlugin::parseResource(const QString &fileName) const
     return resourceMap;
 }
 
-void DoNothingPlugin::sendMessage(const QString & fileName, const QByteArray & data)
+void DoNothingPlugin::sendMessage(const QString & fileName, const QByteArray & data, DoNothingPlugin::MessageType mType)
 {
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_4_6);
 
     out << (quint32) 0;
-    out << (quint32) DoNothingPlugin::FILE;
+    out << (quint32) mType;
     out << fileName;
     out << data;
 
@@ -448,6 +503,38 @@ void DoNothingPlugin::sendDirectory(const QString & path)
             array = file.readAll();
             qDebug() << "a file in dir =" << array.size();
             sendMessage(fileInfo.fileName(), array);
+    }
+}
+
+void DoNothingPlugin::centerWidget(QWidget *widget) const
+{
+    int screenWidth, width;
+    int screenHeight, height;
+    int x, y;
+    QSize widgetSize;
+
+    screenWidth = widget->parentWidget()->width();
+    screenHeight = widget->parentWidget()->height();
+
+    widgetSize = widget->size();
+    width = widgetSize.width();
+    height = widgetSize.height();
+
+    x = (screenWidth - width) / 2;
+    y = (screenHeight - height) / 2;
+
+    widget->move(x, y);
+}
+
+void DoNothingPlugin::setProgressBarValue()
+{
+    static int counter = 0;
+    progressBar->setValue(++counter);
+
+    if (counter == progressBar->maximum()) {
+        progressBar->hide();
+        progressBar->reset();
+        counter = 0;
     }
 }
 
