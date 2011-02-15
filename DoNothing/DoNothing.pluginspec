@@ -1,4 +1,4 @@
-<plugin name="DoNothing" version="1.3.1" compatVersion="1.3.1">
+<plugin name="DoNothing" version="0.1" compatVersion="1.3.1">
 <vendor>Bilkon Ltd.</vendor>
 <copyright>(C) 2011 Bilkon Computer Controlled Devices Man. Trd. Co. Ltd.</copyright>
 <license>
