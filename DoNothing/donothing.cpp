@@ -192,6 +192,9 @@ void DoNothingPlugin::handleFileChange(const QString & path)
                 if (!filesOnServer.contains(fileName.fileName()))
                     imagesToSend.append(absoluteFilePath);
                 qDebug() << "imagewatcher" << fileName.fileName();
+            } else if (!filesOnServer.contains(fileName.fileName())) {
+                filesOnServer.append(fileName.fileName());
+                imagesToSend.append(absoluteFilePath);
             }
         }
     }
