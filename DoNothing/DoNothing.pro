@@ -11,10 +11,12 @@ TARGET = DoNothing
 TEMPLATE = lib
 
 SOURCES += donothing.cpp \
-    settingsdialog.cpp
+    settingsdialog.cpp \
+    uibinderdialog.cpp
 
 HEADERS += donothing.h \
-    settingsdialog.h
+    settingsdialog.h \
+    uibinderdialog.h
 
 include(../../qtcreatorplugin.pri)
 #DESTDIR = $$IDE_PLUGIN_PATH/VCreateLogic
@@ -23,4 +25,5 @@ include(../../plugins/coreplugin/coreplugin.pri)
 OTHER_FILES += DoNothing.pluginspec
 
 FORMS += \
-    settingsdialog.ui
+    settingsdialog.ui \
+    uibinderdialog.ui
