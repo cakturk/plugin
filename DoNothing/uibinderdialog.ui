@@ -2,18 +2,24 @@
 <ui version="4.0">
  <class>uiBinderDialog</class>
  <widget class="QWidget" name="uiBinderDialog">
+  <property name="windowModality">
+   <enum>Qt::ApplicationModal</enum>
+  </property>
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>332</width>
-    <height>343</height>
+    <height>363</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Action Manager</string>
   </property>
-  <widget class="QWidget" name="">
+  <property name="windowOpacity">
+   <double>1.000000000000000</double>
+  </property>
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -61,6 +67,9 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="editable">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
      </layout>
@@ -100,6 +109,9 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="editable">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
      </layout>
@@ -132,6 +144,9 @@
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="editable">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -166,6 +181,9 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="editable">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
      </layout>
@@ -198,6 +216,9 @@
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="editable">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -232,6 +253,9 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="editable">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
      </layout>
@@ -264,6 +288,9 @@
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="editable">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -298,11 +325,53 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="editable">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
      </layout>
     </item>
    </layout>
+  </widget>
+  <widget class="QPushButton" name="pushOK">
+   <property name="geometry">
+    <rect>
+     <x>140</x>
+     <y>320</y>
+     <width>88</width>
+     <height>27</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>OK</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushApply">
+   <property name="geometry">
+    <rect>
+     <x>40</x>
+     <y>320</y>
+     <width>88</width>
+     <height>27</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Apply</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushCancel">
+   <property name="geometry">
+    <rect>
+     <x>240</x>
+     <y>320</y>
+     <width>88</width>
+     <height>27</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Cancel</string>
+   </property>
   </widget>
  </widget>
  <resources/>
