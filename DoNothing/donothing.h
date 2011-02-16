@@ -9,7 +9,10 @@
 #include <QFileSystemWatcher>
 #include <QtNetwork/QTcpSocket>
 
+typedef QPair<QString, QPair<QString, QStringList> > ActionData;
+
 class QProgressBar;
+class uiBinderDialog;
 class /*__attribute__ ((visibility("default")))*/ DoNothingPlugin : public ExtensionSystem::IPlugin
 {
     Q_OBJECT
@@ -46,6 +49,8 @@ private slots:
     void sendAllFiles();
     void upgrade();
     void deleteAllFiles();
+    void applyClickedSlot();
+    void showActionManager();
 
 private:
     void createMenuItems();
@@ -67,6 +72,7 @@ private:
     QString oldFileName;
     Core::FileManager *fm;
     QMap<QString, QStringList> classMap;
+    QMap<QString, ActionData> actionMap;
     QTime timer;
     QTcpSocket socket;
     bool connected;
@@ -77,8 +83,8 @@ private:
     QStringList filesOnServer;
     QStringList imagesToSend;
     QProgressBar *progressBar;
+    uiBinderDialog *uiBinder;
+    QWidget *widget;
 };
-
-void print_trace (void);
 
 #endif // DONOTHING_H

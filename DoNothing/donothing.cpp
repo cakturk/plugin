@@ -16,6 +16,10 @@
 #include <QMainWindow>
 #include <QFileDialog>
 #include <QProgressBar>
+#include <QAbstractButton>
+#include <QSpinBox>
+#include <QLineEdit>
+#include "uibinderdialog.h"
 #include "settingsdialog.h"
 
 DoNothingPlugin::DoNothingPlugin() :
@@ -24,15 +28,19 @@ DoNothingPlugin::DoNothingPlugin() :
         blocksize(0),
         portNumber(33666),
         artDirectory("art"),
-        progressBar(new QProgressBar(static_cast<QWidget *>(Core::ICore::instance()->mainWindow())))
+        progressBar(new QProgressBar(static_cast<QWidget *>(Core::ICore::instance()->mainWindow()))),
+        uiBinder(new uiBinderDialog(static_cast<QWidget *>(Core::ICore::instance()->mainWindow()))),
+        widget(0)
 {
     // Do nothing
     fm = Core::ICore::instance()->fileManager();
     timer.start();
-
+    
     progressBar->resize(250, 10);
     progressBar->hide();
     centerWidget(progressBar);
+    
+    uiBinder->hide();
 }
 
 DoNothingPlugin::~DoNothingPlugin()
@@ -44,22 +52,24 @@ bool DoNothingPlugin::initialize(const QStringList& args, QString *errMsg)
 {
     Q_UNUSED(args);
     Q_UNUSED(errMsg);
-
+    
     createMenuItems();
     connect(fm, SIGNAL(currentFileChanged(QString)), this, SLOT(changeWatchedFile(QString)));
     connect(&uiWatcher, SIGNAL(fileChanged(QString)), this, SLOT(handleFileChange(QString)));
     connect(&imageWatcher, SIGNAL(fileChanged(QString)), this, SLOT(insertFile(QString)));
-
+    
     connect(&socket, SIGNAL(connected()), this, SLOT(connectedSlot()));
     connect(&socket, SIGNAL(disconnected()), this, SLOT(disconnectedSlot()));
     connect(&socket, SIGNAL(readyRead()), this, SLOT(readMessage()));
-
+    
+    connect(uiBinder, SIGNAL(applyClicked()), this, SLOT(applyClickedSlot()));
+    
     QSettings set("Bilkon", "DoNothing");
     QString ipAddress = set.value("ipAddress").toString();
-
+    
     if (!ipAddress.isEmpty() && portNumber != 0)
         socket.connectToHost(ipAddress, portNumber);
-
+    
     return true;
 }
 
@@ -72,7 +82,7 @@ void DoNothingPlugin::changeWatchedFile(QString fileName)
 {
     if (!oldFileName.isEmpty())
         uiWatcher.removePath(oldFileName);
-
+    
     if (!uiWatcher.files().contains(fileName))
         uiWatcher.addPath(fileName);
     oldFileName = fileName;
@@ -81,27 +91,27 @@ void DoNothingPlugin::changeWatchedFile(QString fileName)
 void DoNothingPlugin::readMessage()
 {
     qDebug() << "DoNothingPlugin::readMessage";
-
+    
     again:
-
+    
     int messageType;
     QDataStream in(&socket);
     in.setVersion(QDataStream::Qt_4_6);
-
+    
     if (blocksize == 0) {
         if (socket.bytesAvailable() < sizeof(quint64))
             return;
-
+        
         in >> blocksize;
     }
-
+    
     if (socket.bytesAvailable() < blocksize)
         return;
-
+    
     in >> messageType;
-
+    
     QString fileName, commandString;
-
+    
     switch (messageType) {
     case DoNothingPlugin::FILE:
         ba.clear();
@@ -125,9 +135,9 @@ void DoNothingPlugin::readMessage()
     default:
         qDebug() << "Unknown data format!";
     }
-
+    
     blocksize = 0;
-
+    
     if (socket.bytesAvailable())
         goto again;
 }
@@ -162,30 +172,33 @@ void DoNothingPlugin::handleFileChange(const QString & path)
         return;
     timer.restart();
     qDebug() << "Following file changed" << path;
-
-    QWidget *widget = load(path);
-
+    
+    if (widget != NULL)
+        delete widget;
+    
+    widget = load(path);
+    
     if (!checkNames(widget)) {
         QMessageBox::warning(static_cast<QWidget *>(Core::ICore::instance()->mainWindow()),
                              "Error",
                              "Check widget names!");
         return;
     }
-
+    
     QFile file(path);
     file.open(QFile::ReadOnly);
     QByteArray array = file.readAll();
     QFileInfo fileInfo(path);
     sendMessage(fileInfo.fileName(), array);
     qDebug() << "File size" << array.size();
-
+    
     QDir dir(fileInfo.absolutePath() + "/" + artDirectory);
-
+    
     foreach (QFileInfo fileName, dir.entryInfoList()) {
         if (fileName.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
             fileName.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
             fileName.suffix().compare("jpeg", Qt::CaseInsensitive) == 0) {
-
+            
             QString absoluteFilePath = fileName.absoluteFilePath();
             if (!imageWatcher.files().contains(absoluteFilePath)) {
                 imageWatcher.addPath(absoluteFilePath);
@@ -198,13 +211,13 @@ void DoNothingPlugin::handleFileChange(const QString & path)
             }
         }
     }
-
+    
     if (imagesToSend.size()) {
         progressBar->setMaximum(imagesToSend.size());
         progressBar->show();
         centerWidget(progressBar);
     }
-
+    
     // Send images to server.
     foreach (QString fileName, imagesToSend) {
         fileInfo.setFile(fileName);
@@ -212,13 +225,11 @@ void DoNothingPlugin::handleFileChange(const QString & path)
             QFile imFile(fileName);
             imFile.open(QFile::ReadOnly);
             array = imFile.readAll();
-
+            
             sendMessage(fileInfo.fileName(), array);
         }
     }
     imagesToSend.clear();
-
-    delete widget;
 }
 
 void DoNothingPlugin::insertFile(const QString & path)
@@ -236,13 +247,13 @@ void DoNothingPlugin::settings()
     dialog.setIpAddress(set.value("ipAddress").toString());
     qDebug() << "Connected:" << connected;
     dialog.setStatus(connected ? "Connected" : "Disconnected");
-
+    
     if (dialog.exec()) {
         QString ipAddress = dialog.ipAddress();
-
+        
         if (!ipAddress.isEmpty()) {
             set.setValue("ipAddress", ipAddress);
-
+            
             if (!connected)
                 socket.connectToHost(ipAddress, portNumber);
         }
@@ -252,38 +263,38 @@ void DoNothingPlugin::settings()
 void DoNothingPlugin::sendAllFiles()
 {
     QFileInfo fileInfo(fm->currentFile());
-
+    
     if (!fileInfo.exists())
         return;
-
+    
     QFile file(fileInfo.absoluteFilePath());
     if (!file.open(QFile::ReadOnly))
         return;
-
+    
     QByteArray array = file.readAll();
     sendMessage(fileInfo.fileName(), array);
-
+    
     QDir dir(fileInfo.absolutePath() + "/" + artDirectory);
     QStringList list;
-
+    
     foreach (QFileInfo fileName, dir.entryInfoList()) {
         if (fileName.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
             fileName.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
             fileName.suffix().compare("jpeg", Qt::CaseInsensitive) == 0) {
-
+            
             if (!filesOnServer.contains(fileName.fileName())) {
                 filesOnServer.append(fileName.fileName());
                 list.append(fileName.absoluteFilePath());
             }
         }
     }
-
+    
     if (list.size()) {
         progressBar->setMaximum(list.size());
         progressBar->show();
         centerWidget(progressBar);
     }
-
+    
     foreach (QString filePath, list) {
         QFileInfo fileInfo(filePath);
         QFile imageFile(filePath);
@@ -297,15 +308,15 @@ void DoNothingPlugin::upgrade()
 {
     QString fileName = QFileDialog::getOpenFileName(0);
     qDebug() << "Recently opened file" << fileName;
-
+    
     QFileInfo fileInfo(fileName);
     if (!fileInfo.exists())
         return;
-
+    
     QFile file(fileInfo.absoluteFilePath());
     if(!file.open(QFile::ReadOnly))
         return;
-
+    
     QByteArray array = file.readAll();
     sendMessage(fileInfo.fileName(), array, DoNothingPlugin::UPGRADE);
 }
@@ -314,6 +325,37 @@ void DoNothingPlugin::deleteAllFiles()
 {
     sendMessage("delete_all_files");
     filesOnServer.clear();
+}
+
+void DoNothingPlugin::applyClickedSlot()
+{
+    qDebug() << "applyClickedSlot";
+}
+
+void DoNothingPlugin::showActionManager()
+{
+    if (widget != NULL)
+        delete widget;
+
+    if((widget = load(fm->currentFile())) == NULL)
+        return;
+
+    QList<QAbstractButton *> buttonList = widget->findChildren<QAbstractButton *>();
+    QList<QSpinBox *> spinList = widget->findChildren<QSpinBox *>();
+    QList<QLineEdit *> lineEditList = widget->findChildren<QLineEdit *>();
+    QStringList buttonNames, parameterObjNames;
+    
+    for (int i = 0; i < buttonList.size(); ++i)
+        buttonNames.append(buttonList[i]->objectName());
+    for (int i = 0; i < spinList.size(); ++i)
+        parameterObjNames.append(spinList[i]->objectName());
+    for (int i = 0; i < lineEditList.size(); ++i)
+        parameterObjNames.append(lineEditList[i]->objectName());
+
+    uiBinder->setClassMap(classMap);
+    uiBinder->setButtonNames(buttonNames);
+    uiBinder->setFunctionParams(parameterObjNames);
+    uiBinder->exec();
 }
 
 void DoNothingPlugin::connectedSlot()
@@ -333,7 +375,7 @@ void DoNothingPlugin::createMenuItems()
     Core::ActionManager* am = Core::ICore::instance()->actionManager();
     Core::ActionContainer *ac = am->createMenu("BilkonPlugin.BilkonMenu");
     ac->menu()->setTitle("Bilko&n");
-
+    
     Core::Command *cmd = am->registerAction(new QAction(this),
                                             "DoNothingPlugin.DoNothingMenu",
                                             QList<int>() << 0);
@@ -341,33 +383,36 @@ void DoNothingPlugin::createMenuItems()
     am->actionContainer(Core::Constants::MENU_BAR)->addMenu(ac);
     ac->addAction(cmd);
     connect(cmd->action(), SIGNAL(triggered(bool)), this, SLOT(about()));
-
+    
     QAction *settingsAction = ac->menu()->addAction("&Settings");
     connect(settingsAction, SIGNAL(triggered(bool)), this, SLOT(settings()));
-
+    
     QAction *sendFilesAction = ac->menu()->addAction("Send All &Files");
     connect(sendFilesAction, SIGNAL(triggered(bool)), this, SLOT(sendAllFiles()));
-
+    
     QAction *upgrade = ac->menu()->addAction("&Upgrade");
     connect(upgrade, SIGNAL(triggered(bool)), this, SLOT(upgrade()));
-
+    
     QAction *deleteAllFiles = ac->menu()->addAction("&Delete All Files");
     connect(deleteAllFiles, SIGNAL(triggered(bool)), this, SLOT(deleteAllFiles()));
+    
+    QAction *actionManager= ac->menu()->addAction("Show Action Manager");
+    connect(actionManager, SIGNAL(triggered(bool)), this, SLOT(showActionManager()));
 }
 
 bool DoNothingPlugin::isValid(const QString & objName) const
 {
     return true;
-
+    
     QStringList list = objName.split("_");
     if (list.size() >= 1)
         return false;
-
+    
     if (classMap.contains(list[0])) {
         if (!classMap.value(list[0]).contains(list[1]))
             return false;
     }
-
+    
     return true;
 }
 
@@ -375,12 +420,12 @@ QList<Core::IFile *> DoNothingPlugin::modifiedFiles() const
 {
     QList<Core::IFile *> list;
     //fm = Core::ICore::instance()->fileManager();
-
+    
     foreach (Core::IFile *uiFile, fm->modifiedFiles()) {
         if (uiFile->mimeType() == mime_type)
             list.append(uiFile);
     }
-
+    
     return list;
 }
 
@@ -388,27 +433,27 @@ QWidget* DoNothingPlugin::load(const QString & fileName)
 {
     QUiLoader loader;
     QFile file(fileName);
-    file.open(QFile::ReadOnly);
-
+    if (!file.open(QFile::ReadOnly))
+        return NULL;
     return loader.load(&file, NULL);
 }
 
 bool DoNothingPlugin::checkNames(const QWidget *widget) const
 {
-
+    
     if (widget == NULL)
         return false;
-
+    
     qDebug() << "checkNames" << widget;
     QList<QWidget *> list = widget->findChildren<QWidget *>();
     qDebug() << "checkNames" << list.size() << list.first()->objectName();
-
+    
     foreach (QWidget *w, list) {
         qDebug() << w->objectName();
         if (!isValid(w->objectName()))
             return false;
     }
-
+    
     return true;
 }
 
@@ -418,8 +463,8 @@ QStringList DoNothingPlugin::parseResource(const QString &fileName) const
     QFile file(fileName);
     if(!file.open(QFile::ReadOnly))
         return resourceMap;
-
-
+    
+    
     QByteArray ba = file.readAll();
     qDebug() << ba;
     QXmlStreamReader xmlReader(ba);
@@ -430,10 +475,10 @@ QStringList DoNothingPlugin::parseResource(const QString &fileName) const
             qDebug() << xmlReader.readElementText() << xmlReader.name();
         }
     }
-
+    
     if (xmlReader.hasError())
         qDebug() << "An error occurred" << xmlReader.errorString();
-
+    
     return resourceMap;
 }
 
@@ -442,15 +487,15 @@ void DoNothingPlugin::sendMessage(const QString & fileName, const QByteArray & d
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_4_6);
-
+    
     out << (quint32) 0;
     out << (quint32) mType;
     out << fileName;
     out << data;
-
+    
     out.device()->seek(0);
     out << (quint32) (block.size() - sizeof(quint32));
-
+    
     socket.write(block);
 }
 
@@ -459,14 +504,14 @@ void DoNothingPlugin::sendMessage(const QString & string)
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_4_6);
-
+    
     out << (quint32) 0;
     out << (quint32) DoNothingPlugin::COMMAND;
     out << string;
-
+    
     out.device()->seek(0);
     out << (quint32) (block.size() - sizeof(quint32));
-
+    
     socket.write(block);
 }
 
@@ -475,14 +520,14 @@ void DoNothingPlugin::sendMessage(const QMap<QString, QStringList> & classMap)
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_4_6);
-
+    
     out << (quint32) 0;
     out << (quint32) DoNothingPlugin::MAP;
     out << classMap;
-
+    
     out.device()->seek(0);
     out << (quint32) (block.size() - sizeof(quint32));
-
+    
     socket.write(block);
 }
 
@@ -493,19 +538,19 @@ void DoNothingPlugin::sendDirectory(const QString & path)
 {
     QDir dir(path);
     qDebug() << "Current dir:" << path;
-
+    
     QByteArray array;
     QFileInfoList list = dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
-
+    
     foreach (QFileInfo fileInfo, list) {
-            qDebug() << "Filename:" << fileInfo.fileName();
-            QFile file(fileInfo.absoluteFilePath());
-            if (!file.open(QFile::ReadOnly))
-                continue;
-
-            array = file.readAll();
-            qDebug() << "a file in dir =" << array.size();
-            sendMessage(fileInfo.fileName(), array);
+        qDebug() << "Filename:" << fileInfo.fileName();
+        QFile file(fileInfo.absoluteFilePath());
+        if (!file.open(QFile::ReadOnly))
+            continue;
+        
+        array = file.readAll();
+        qDebug() << "a file in dir =" << array.size();
+        sendMessage(fileInfo.fileName(), array);
     }
 }
 
@@ -515,17 +560,17 @@ void DoNothingPlugin::centerWidget(QWidget *widget) const
     int screenHeight, height;
     int x, y;
     QSize widgetSize;
-
+    
     screenWidth = widget->parentWidget()->width();
     screenHeight = widget->parentWidget()->height();
-
+    
     widgetSize = widget->size();
     width = widgetSize.width();
     height = widgetSize.height();
-
+    
     x = (screenWidth - width) / 2;
     y = (screenHeight - height) / 2;
-
+    
     widget->move(x, y);
 }
 
@@ -533,7 +578,7 @@ void DoNothingPlugin::setProgressBarValue()
 {
     static int counter = 0;
     progressBar->setValue(++counter);
-
+    
     if (counter == progressBar->maximum()) {
         progressBar->hide();
         progressBar->reset();
