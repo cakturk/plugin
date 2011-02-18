@@ -36,11 +36,9 @@ DoNothingPlugin::DoNothingPlugin() :
     fm = Core::ICore::instance()->fileManager();
     timer.start();
     
-    progressBar->resize(250, 10);
+    progressBar->resize(250, 20);
     progressBar->hide();
     centerWidget(progressBar);
-    
-    uiBinder->hide();
 }
 
 DoNothingPlugin::~DoNothingPlugin()
