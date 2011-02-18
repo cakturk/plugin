@@ -33,13 +33,18 @@ private slots:
     void on_pushOK_clicked();
     void on_pushCancel_clicked();
     void updateFunctionNames(const QString & className);
+    void saveChanges(int index);
+    void loadChanges(int index);
+    void init();
 
 private:
     Ui::uiBinderDialog *ui;
-    QPair<QString, QPair<QString, QStringList> > properties;
+    QStringList parameterList;
     QMap<QString, QStringList> classMap;
+    QHash<QString, QHash<QString, QString> > mappings;
 
     bool validate() const;
+    void disableSignals(bool);
 };
 
 #endif // UIBINDERDIALOG_H
