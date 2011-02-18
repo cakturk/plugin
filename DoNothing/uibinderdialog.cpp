@@ -1,17 +1,21 @@
 #include "uibinderdialog.h"
 #include "ui_uibinderdialog.h"
 #include <QDebug>
+#include <QTimer>
 
 uiBinderDialog::uiBinderDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::uiBinderDialog)
 {
     ui->setupUi(this);
+    QTimer::singleShot(0, this, SLOT(init()));
+    //QMetaObject::invokeMethod(this, "init", Qt::QueuedConnection);
+//    connect(ui->pushApply, SIGNAL(clicked()), this, SIGNAL(applyClicked()));
+//    connect(ui->pushOK, SIGNAL(clicked()), this, SIGNAL(okClicked()));
+//    connect(ui->pushCancel, SIGNAL(clicked()), this, SIGNAL(cancelClicked()));
 
-    connect(ui->pushApply, SIGNAL(clicked()), this, SIGNAL(applyClicked()));
-    connect(ui->pushOK, SIGNAL(clicked()), this, SIGNAL(okClicked()));
-    connect(ui->pushCancel, SIGNAL(clicked()), this, SIGNAL(cancelClicked()));
-    connect(ui->comboClass, SIGNAL(currentIndexChanged(QString)), this, SLOT(updateFunctionNames(QString)));
+    qDebug() << "In da constructor";
+
 }
 
 uiBinderDialog::~uiBinderDialog()
@@ -19,19 +23,9 @@ uiBinderDialog::~uiBinderDialog()
     delete ui;
 }
 
-QPair<QString, QPair<QString, QStringList> > uiBinderDialog::getProperties()
+const QHash<QString, QHash<QString, QString> > uiBinderDialog::getMappings() const
 {
-    QPair<QString, QPair<QString, QStringList> > retVal;
-
-    retVal.first = ui->comboButton->currentText();
-    retVal.second.first = ui->comboClass->currentText();
-    retVal.second.second.append(ui->comboParam_1->currentText());
-    retVal.second.second.append(ui->comboParam_2->currentText());
-    retVal.second.second.append(ui->comboParam_3->currentText());
-    retVal.second.second.append(ui->comboParam_4->currentText());
-    retVal.second.second.append(ui->comboParam_5->currentText());
-
-    return retVal;
+    return mappings;
 }
 
 void uiBinderDialog::setButtonNames(const QStringList &buttonNames) const
@@ -52,19 +46,28 @@ void uiBinderDialog::setFunctionNames(const QStringList &functionNames) const
     ui->comboFunction->addItems(functionNames);
 }
 
-void uiBinderDialog::setFunctionParams(const QStringList & paramNames) const
+void uiBinderDialog::setFunctionParams(const QStringList & paramNames)
 {
+    if (paramNames.isEmpty())
+        return;
+
+    parameterList = paramNames;
+
+    if (paramNames.first() != "None")
+        parameterList.prepend("None");
+
     ui->comboParam_1->clear();
     ui->comboParam_2->clear();
     ui->comboParam_3->clear();
     ui->comboParam_4->clear();
     ui->comboParam_5->clear();
 
-    ui->comboParam_1->addItems(paramNames);
-    ui->comboParam_2->addItems(paramNames);
-    ui->comboParam_3->addItems(paramNames);
-    ui->comboParam_4->addItems(paramNames);
-    ui->comboParam_5->addItems(paramNames);
+    ui->comboParam_1->addItems(parameterList);
+    ui->comboParam_2->addItems(parameterList);
+    ui->comboParam_3->addItems(parameterList);
+    ui->comboParam_4->addItems(parameterList);
+    ui->comboParam_5->addItems(parameterList);
+
 }
 
 void uiBinderDialog::setClassMap(QMap<QString, QStringList> &map)
