@@ -261,28 +261,36 @@ void DoNothingPlugin::settings()
 void DoNothingPlugin::sendAllFiles()
 {
     QFileInfo fileInfo(fm->currentFile());
-    
     if (!fileInfo.exists())
         return;
-    
-    QFile file(fileInfo.absoluteFilePath());
-    if (!file.open(QFile::ReadOnly))
+
+    QByteArray array;
+    QDir dir(fileInfo.absolutePath());
+    if (!dir.exists())
         return;
-    
-    QByteArray array = file.readAll();
-    sendMessage(fileInfo.fileName(), array);
-    
-    QDir dir(fileInfo.absolutePath() + "/" + artDirectory);
+
+    QFileInfoList fInfoList = dir.entryInfoList(QStringList("*.ui"), QDir::Files | QDir::NoDotAndDotDot);
+    foreach (fileInfo, fInfoList) {
+        QFile file(fileInfo.absoluteFilePath());
+        if (!file.open(QFile::ReadOnly))
+            continue;
+        array = file.readAll();
+        sendMessage(fileInfo.fileName(), array);
+    }
+
+
     QStringList list;
-    
-    foreach (QFileInfo fileName, dir.entryInfoList()) {
-        if (fileName.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
-            fileName.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
-            fileName.suffix().compare("jpeg", Qt::CaseInsensitive) == 0) {
+    if(!dir.cd(fileInfo.absolutePath() + "/" + artDirectory))
+        return;
+
+    foreach (fileInfo, dir.entryInfoList()) {
+        if (fileInfo.suffix().compare("png", Qt::CaseInsensitive) == 0 ||
+            fileInfo.suffix().compare("jpg", Qt::CaseInsensitive) == 0 ||
+            fileInfo.suffix().compare("jpeg", Qt::CaseInsensitive) == 0) {
             
-            if (!filesOnServer.contains(fileName.fileName())) {
-                filesOnServer.append(fileName.fileName());
-                list.append(fileName.absoluteFilePath());
+            if (!filesOnServer.contains(fileInfo.fileName())) {
+                filesOnServer.append(fileInfo.fileName());
+                list.append(fileInfo.absoluteFilePath());
             }
         }
     }
