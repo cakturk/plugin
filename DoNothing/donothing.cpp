@@ -444,10 +444,7 @@ bool DoNothingPlugin::checkNames(const QWidget *widget) const
     if (widget == NULL)
         return false;
     
-    qDebug() << "checkNames" << widget;
     QList<QWidget *> list = widget->findChildren<QWidget *>();
-    qDebug() << "checkNames" << list.size() << list.first()->objectName();
-    
     foreach (QWidget *w, list) {
         qDebug() << w->objectName();
         if (!isValid(w->objectName()))
